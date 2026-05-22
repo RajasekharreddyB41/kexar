@@ -1,0 +1,44 @@
+# Render Blueprint for Kexar backend.
+# https://render.com/docs/blueprint-spec
+#
+# Day 1 placeholder: deploys the FastAPI app with a /health endpoint.
+# Real routes (POST /api/runs, SSE event stream, chaos endpoint) land Day 4.
+
+services:
+  - type: web
+    name: kexar-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: apps/api
+    buildCommand: pip install uv && uv sync --frozen
+    startCommand: uv run uvicorn kexar.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.4
+      - key: ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: PORT
+        value: 8000
+      # Secrets entered manually in the Render dashboard. Listed here so
+      # the deploy fails loud if missing rather than blowing up at runtime.
+      - key: TRUEFOUNDRY_API_KEY
+        sync: false
+      - key: TRUEFOUNDRY_BASE_URL
+        sync: false
+      - key: TRUEFOUNDRY_MODEL_CLAUDE
+        sync: false
+      - key: TRUEFOUNDRY_MODEL_GPT4O
+        sync: false
+      - key: TRUEFOUNDRY_MODEL_GEMINI
+        sync: false
+      - key: TRUEFOUNDRY_MODEL_GROQ
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://kexar.vercel.app"
