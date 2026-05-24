@@ -196,6 +196,73 @@ async def stream_events(run_id: str, request: Request) -> EventSourceResponse:
 
 
 # -----------------------------------------------------------------------------
+# Chaos endpoint
+#
+# Demo-only. Toggles a tool's kill state. The next time the runtime tries to
+# call that tool, it raises ToolUnavailableError immediately and degraded
+# mode kicks in. The demo UI calls this between user messages.
+#
+# Rate-limited via a simple token bucket so the public URL is not a DDoS
+# vector. 30 calls/minute is generous for human-driven demo use.
+# -----------------------------------------------------------------------------
+
+
+class ChaosToggleRequest(BaseModel):
+    tool: str = Field(min_length=1, max_length=64)
+    killed: bool
+
+
+class ChaosToggleResponse(BaseModel):
+    tool: str
+    killed: bool
+    currently_killed: list[str]
+
+
+_chaos_bucket: dict[str, list[float]] = {"timestamps": []}
+_CHAOS_LIMIT_PER_MIN = 30
+
+
+def _check_chaos_rate_limit() -> None:
+    """Drop timestamps older than 60s, refuse if over the limit."""
+    import time
+
+    now = time.monotonic()
+    cutoff = now - 60.0
+    ts = _chaos_bucket["timestamps"]
+    while ts and ts[0] < cutoff:
+        ts.pop(0)
+    if len(ts) >= _CHAOS_LIMIT_PER_MIN:
+        raise HTTPException(
+            status_code=429,
+            detail="chaos endpoint rate limit: 30 calls per minute",
+        )
+    ts.append(now)
+
+
+@app.post("/api/demo/chaos", response_model=ChaosToggleResponse)
+async def chaos_toggle(body: ChaosToggleRequest) -> ChaosToggleResponse:
+    """Kill or restore a tool. Demo only."""
+    _check_chaos_rate_limit()
+
+    from kexar.runtime.tools import (
+        kill_tool,
+        killed_tools,
+        restore_tool,
+    )
+
+    if body.killed:
+        kill_tool(body.tool)
+    else:
+        restore_tool(body.tool)
+
+    return ChaosToggleResponse(
+        tool=body.tool,
+        killed=body.killed,
+        currently_killed=sorted(killed_tools()),
+    )
+
+
+# -----------------------------------------------------------------------------
 # Local dev hook: print a route list for sanity.
 # -----------------------------------------------------------------------------
 
