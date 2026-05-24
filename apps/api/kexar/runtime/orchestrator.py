@@ -63,8 +63,13 @@ async def run_incident(
     user_message: str,
     *,
     incident_id: str | None = None,
+    run_id: str | None = None,
 ) -> Run:
     """Run the agent against one user message. Returns the completed Run.
+
+    If run_id is given, the Run is constructed with that id so callers
+    (e.g. the API) can subscribe to the bus before run_incident even
+    starts. Otherwise a new id is generated.
 
     All progress is on the event bus. Callers that want to stream it to
     a browser subscribe to bus.subscribe(run.id) in parallel.
@@ -76,11 +81,14 @@ async def run_incident(
         max_tokens=DEFAULT_BUDGET_POLICY.max_tokens,
         max_cost_usd=DEFAULT_BUDGET_POLICY.max_cost_usd,
     )
-    run = Run(
-        incident_id=incident_id,
-        budget=budget,
-        state=AgentState(user_message=user_message),
-    )
+    run_kwargs: dict = {
+        "incident_id": incident_id,
+        "budget": budget,
+        "state": AgentState(user_message=user_message),
+    }
+    if run_id is not None:
+        run_kwargs["id"] = run_id
+    run = Run(**run_kwargs)
     run.status = RunStatus.RUNNING
 
     await bus.publish(

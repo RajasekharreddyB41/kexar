@@ -1,20 +1,76 @@
 """
 FastAPI app entry point.
 
-Real routes land starting Day 4. For now this exists to verify that
-Render can build, install, and serve the backend from a real URL.
+Lifecycle:
+  startup:  initialize the asyncpg pool, log readiness.
+  shutdown: close the pool.
+
+Routes:
+  GET  /                            human-friendly service info
+  GET  /health                      Render health check
+  POST /api/runs                    kick off a run, return run_id
+  GET  /api/runs/{run_id}/events    SSE stream of events for that run
+
+Day 4 in progress. Chaos endpoint and replay land in a follow-up commit.
 """
 
-from fastapi import FastAPI
+from __future__ import annotations
+
+import asyncio
+import logging
+from contextlib import asynccontextmanager
+from typing import Any
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
 from kexar.config import settings
+from kexar.db.client import close_pool, get_pool
+from kexar.runtime.events import bus
+from kexar.runtime.orchestrator import run_incident
+from kexar.runtime.state import Run
+
+logger = logging.getLogger("kexar.api")
+logging.basicConfig(level=settings.log_level)
+
+
+# -----------------------------------------------------------------------------
+# Lifespan: init the DB pool on startup, close on shutdown.
+# -----------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup. If DATABASE_URL is missing or unreachable, fail loud here so
+    # Render marks the deploy as failed instead of running a broken service.
+    logger.info("Kexar API starting up")
+    if not settings.database_url:
+        logger.error("DATABASE_URL is not set; refusing to start")
+        raise RuntimeError("DATABASE_URL is required")
+
+    try:
+        await get_pool()
+        logger.info("DB pool initialized")
+    except Exception:
+        logger.exception("Failed to initialize DB pool")
+        raise
+
+    yield
+
+    # Shutdown.
+    logger.info("Kexar API shutting down")
+    await close_pool()
+
 
 app = FastAPI(
     title="Kexar API",
     description="Resilience runtime for production AI agents",
-    version="0.1.0",
+    version="0.2.0",
+    lifespan=lifespan,
 )
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,17 +81,132 @@ app.add_middleware(
 )
 
 
+# -----------------------------------------------------------------------------
+# Tracking in-flight runs.
+#
+# We need this because POST /api/runs kicks off the orchestrator in a
+# background task and returns the run_id immediately. The SSE endpoint
+# then subscribes to that run_id on the bus. We also keep the Run
+# objects briefly so the API can answer "did this run finish" later.
+# -----------------------------------------------------------------------------
+
+
+_in_flight: dict[str, asyncio.Task[Run]] = {}
+
+
+def _track(task: asyncio.Task[Run], run_id: str) -> None:
+    _in_flight[run_id] = task
+
+    def _done(_t: asyncio.Task[Run]) -> None:
+        # Drop the entry once the task finishes. The run is still in the
+        # DB (Day 4 follow-up will persist), so we do not lose anything.
+        _in_flight.pop(run_id, None)
+
+    task.add_done_callback(_done)
+
+
+# -----------------------------------------------------------------------------
+# Request / response shapes
+# -----------------------------------------------------------------------------
+
+
+class StartRunRequest(BaseModel):
+    user_message: str = Field(min_length=1, max_length=2000)
+    incident_id: str | None = None
+
+
+class StartRunResponse(BaseModel):
+    run_id: str
+    status: str
+
+
+# -----------------------------------------------------------------------------
+# Routes
+# -----------------------------------------------------------------------------
+
+
 @app.get("/")
 async def root() -> dict[str, str]:
-    """Root endpoint, useful for human eyeballing in a browser."""
     return {
         "service": "kexar-api",
-        "status": "build in progress",
+        "status": "live",
+        "version": app.version,
         "demo": "May 28, 2026",
     }
 
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    """Health check for Render. Returns 200 when the process is alive."""
+    """Render polls this. Returns 200 when the process is alive AND the
+    DB pool is initialized. If startup failed, this endpoint never serves."""
     return {"status": "ok"}
+
+
+@app.post("/api/runs", response_model=StartRunResponse)
+async def start_run(body: StartRunRequest) -> StartRunResponse:
+    """Kick off a run. Returns immediately with the run_id.
+
+    We pre-allocate the run_id here, kick the orchestrator off as a
+    background task, and return the id without waiting for the run to
+    finish. SSE subscribers can connect right away and tail events live.
+    """
+    from kexar.runtime.state import _new_run_id
+
+    run_id = _new_run_id()
+
+    async def _runner() -> Run:
+        return await run_incident(
+            body.user_message,
+            incident_id=body.incident_id,
+            run_id=run_id,
+        )
+
+    task = asyncio.create_task(_runner())
+    _track(task, run_id)
+
+    return StartRunResponse(run_id=run_id, status="running")
+
+
+@app.get("/api/runs/{run_id}/events")
+async def stream_events(run_id: str, request: Request) -> EventSourceResponse:
+    """Server-Sent Events stream of events for one run.
+
+    Subscribes to the in-process bus and streams every event for the
+    given run_id. Closes when the run emits run.complete or run.aborted,
+    or when the client disconnects.
+    """
+
+    async def event_generator():
+        async for event in bus.subscribe(run_id):
+            # Client closed the tab; stop pushing.
+            if await request.is_disconnected():
+                break
+
+            yield {
+                "event": event.type,
+                "id": str(event.seq),
+                "data": event.model_dump_json(),
+            }
+
+            # Terminal events close the stream.
+            if event.type in ("run.complete", "run.aborted"):
+                break
+
+    return EventSourceResponse(event_generator())
+
+
+# -----------------------------------------------------------------------------
+# Local dev hook: print a route list for sanity.
+# -----------------------------------------------------------------------------
+
+
+@app.get("/_routes")
+async def _list_routes() -> list[dict[str, Any]]:
+    """Debug helper: list all routes. Disabled in production by simple env check."""
+    if not settings.is_dev:
+        raise HTTPException(status_code=404, detail="not found")
+    out = []
+    for r in app.routes:
+        if hasattr(r, "methods") and hasattr(r, "path"):
+            out.append({"path": r.path, "methods": sorted(r.methods)})
+    return out
