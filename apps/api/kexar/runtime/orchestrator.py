@@ -138,6 +138,26 @@ async def _loop(run: Run) -> None:
         if action == "use_tool":
             tool = decision.get("tool", "")
             args = decision.get("args", {}) or {}
+
+            # Deterministic guards. The model is allowed to be wrong; the
+            # orchestrator is not. Refuse repeats and refuse known-dead
+            # tools without consuming a step. Push the agent toward respond.
+            if tool in run.state.unavailable_tools:
+                run.state.history.append(
+                    f"refused: {tool} is unavailable, forcing respond"
+                )
+                await _step_respond(run)
+                await _complete(run)
+                return
+
+            if tool in run.state.facts:
+                run.state.history.append(
+                    f"refused: {tool} already called, forcing respond"
+                )
+                await _step_respond(run)
+                await _complete(run)
+                return
+
             await _step_act(run, tool=tool, args=args)
             if _hit_any_cap(run):
                 await _budget_exceed_and_finish(run)
@@ -419,22 +439,35 @@ def _maybe_warn_budget(run: Run) -> None:
 
 
 _PLANNER_SYSTEM = """You are Kexar IR, an incident response copilot.
-You are mid-investigation. The user posed an incident. You have access
-to three tools: query_logs, fetch_metrics, lookup_runbook.
+You are mid-investigation. The user posed an incident. You have three
+tools: query_logs, fetch_metrics, lookup_runbook.
 
-On every turn, decide ONE of:
-  * use_tool: call exactly one tool to gather more information.
-  * respond:  produce the final answer because you have enough info OR
-              the user's question does not require a tool.
+DECISION RULES (read carefully, follow strictly):
 
-Reply ONLY with a JSON object on a single line. No prose around it.
+1. If a tool appears under "UNAVAILABLE tools" in the user context,
+   that tool is FORBIDDEN. You MUST NOT emit {"action":"use_tool",
+   "tool":"<that name>"}. The user already knows it is broken.
+
+2. If you have ALREADY called a tool successfully (it appears under
+   "Known facts so far"), do NOT call it again. Move on.
+
+3. If every tool you still have access to has either been called or
+   is unavailable, you MUST respond. Set action to "respond" and
+   write a final answer based on what you have, naming what is
+   missing.
+
+4. You have a budget of 10 steps. After 5 steps, prefer responding
+   over more tool calls.
+
+OUTPUT FORMAT (mandatory):
+
+Reply with ONE JSON object on ONE line. No prose, no markdown fence.
 Shape:
-  {"action": "use_tool", "tool": "<name>", "args": {}}
+  {"action":"use_tool","tool":"<name>","args":{}}
   OR
-  {"action": "respond", "answer": "<one or two sentences>"}
+  {"action":"respond","answer":"<2-3 sentences>"}
 
-If a tool is listed as UNAVAILABLE in the context, do NOT call it.
-Reason over what you already have. Be honest about what is missing."""
+If you violate the rules above, the user gets a worse answer."""
 
 
 def _build_planning_messages(run: Run) -> list[dict[str, str]]:
