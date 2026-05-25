@@ -204,7 +204,7 @@ async def _step_think(run: Run) -> dict[str, Any]:
 
     summary = _summarize_decision(decision)
     run.state.history.append(f"think({response.model_used}): {summary}")
-    _end_step(run, step, summary=summary)
+    await _end_step(run, step, summary=summary)
     _maybe_warn_budget(run)
     return decision
 
@@ -236,7 +236,7 @@ async def _step_act(run: Run, *, tool: str, args: dict[str, Any]) -> None:
         step.result = {"tool": tool, "ok": False, "reason": str(e)}
         summary = f"act({tool}): error"
 
-    _end_step(run, step, summary=summary)
+    await _end_step(run, step, summary=summary)
     _maybe_warn_budget(run)
 
 
@@ -266,7 +266,7 @@ async def _step_respond(run: Run, *, draft: str | None = None) -> None:
     summary = answer[:120].replace("\n", " ")
     if len(answer) > 120:
         summary += "..."
-    _end_step(run, step, summary=summary)
+    await _end_step(run, step, summary=summary)
 
 
 # -----------------------------------------------------------------------------
@@ -282,43 +282,38 @@ def _start_step(run: Run, *, kind: StepKind) -> Step:
     return step
 
 
-def _end_step(run: Run, step: Step, *, summary: str) -> None:
+async def _end_step(run: Run, step: Step, *, summary: str) -> None:
+    """Publish step.start + step.end. Awaited so events flush to
+    subscribers before the caller moves on. Previous fire-and-forget
+    version raced with run.complete on the final respond step.
+    """
     from datetime import UTC, datetime
 
     step.ended_at = datetime.now(UTC)
     run.budget.steps_used += 1
-
-    # Publish the start AND end events together at the end of the step,
-    # so they carry consistent timing. Architecture doc allows this
-    # ordering: events are stamped with seq, the frontend renders by seq.
-    import asyncio as _asyncio
-
-    async def _emit() -> None:
-        await bus.publish(
-            run.id,
-            StepStart(
-                seq=0,
-                run_id="",
-                step=step.index,
-                data={"kind": step.kind.value},
-            ),
-        )
-        await bus.publish(
-            run.id,
-            StepEnd(
-                seq=0,
-                run_id="",
-                step=step.index,
-                data={
-                    "kind": step.kind.value,
-                    "duration_ms": step.duration_ms or 0,
-                    "succeeded": step.succeeded,
-                    "summary": summary,
-                },
-            ),
-        )
-
-    _asyncio.ensure_future(_emit())  # noqa: RUF006
+    await bus.publish(
+        run.id,
+        StepStart(
+            seq=0,
+            run_id="",
+            step=step.index,
+            data={"kind": step.kind.value},
+        ),
+    )
+    await bus.publish(
+        run.id,
+        StepEnd(
+            seq=0,
+            run_id="",
+            step=step.index,
+            data={
+                "kind": step.kind.value,
+                "duration_ms": step.duration_ms or 0,
+                "succeeded": step.succeeded,
+                "summary": summary,
+            },
+        ),
+    )
 
 
 async def _complete(run: Run) -> None:
