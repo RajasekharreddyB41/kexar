@@ -10,13 +10,17 @@
 import { useReducer, useState, type FormEvent } from "react";
 import { Activity, AlertCircle, Send } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { ActiveModel, type ModelStatus } from "@/components/active-model";
+import { BudgetBar } from "@/components/budget-bar";
+import { EventLog } from "@/components/event-log";
+import { ToolRow, type ToolStatus } from "@/components/tool-row";
 import { startRun, toggleChaos } from "@/lib/api";
+import { listFixtures, type Fixture } from "@/lib/fixtures";
 import type { KexarEvent } from "@/lib/events";
 import { useEventStream } from "@/lib/sse";
 
@@ -44,6 +48,8 @@ interface PageState {
   messages: Message[];
   events: KexarEvent[];
   activeModel: string | null;
+  modelStatus: ModelStatus;
+  failoverChain: string[];
   tokensUsed: number;
   costUsd: number;
   stepsUsed: number;
@@ -60,6 +66,8 @@ const INITIAL_STATE: PageState = {
   messages: [],
   events: [],
   activeModel: null,
+  modelStatus: "healthy",
+  failoverChain: [],
   tokensUsed: 0,
   costUsd: 0,
   stepsUsed: 0,
@@ -75,6 +83,7 @@ type Action =
   | { type: "event"; event: KexarEvent }
   | { type: "chaos_toggled"; tool: string; killed: boolean }
   | { type: "error"; message: string }
+  | { type: "replay_start"; fixtureName: string; message: string }
   | { type: "reset" };
 
 function reducer(state: PageState, action: Action): PageState {
@@ -92,6 +101,8 @@ function reducer(state: PageState, action: Action): PageState {
         messages: [...state.messages, userMsg],
         events: [],
         activeModel: null,
+        modelStatus: "calling",
+        failoverChain: [],
         tokensUsed: 0,
         costUsd: 0,
         stepsUsed: 0,
@@ -105,16 +116,40 @@ function reducer(state: PageState, action: Action): PageState {
       let next: PageState = { ...state, events };
 
       if (e.type === "llm.call.start") {
-        next = { ...next, activeModel: e.data.model };
+        const isContinuationOfCascade = next.modelStatus === "failing";
+        const chain = isContinuationOfCascade
+          ? next.failoverChain
+          : [e.data.model];
+        next = {
+          ...next,
+          activeModel: e.data.model,
+          modelStatus: "calling",
+          failoverChain: chain,
+        };
       } else if (e.type === "llm.call.success") {
         next = {
           ...next,
           activeModel: e.data.model,
+          modelStatus: "healthy",
           tokensUsed: next.tokensUsed + (e.data.tokens_prompt + e.data.tokens_completion),
           costUsd: Number((next.costUsd + e.data.cost_usd).toFixed(6)),
         };
+      } else if (e.type === "llm.call.failure") {
+        next = { ...next, modelStatus: "failing" };
       } else if (e.type === "llm.failover") {
-        next = { ...next, activeModel: e.data.to_model };
+        const lastInChain = next.failoverChain[next.failoverChain.length - 1];
+        const chain =
+          lastInChain === e.data.to_model
+            ? next.failoverChain
+            : [...next.failoverChain, e.data.to_model];
+        next = {
+          ...next,
+          activeModel: e.data.to_model,
+          // Keep modelStatus as "failing" so the next llm.call.start
+          // can detect that it is mid-cascade and preserve the chain.
+          // The next call.start will flip status to "calling".
+          failoverChain: chain,
+        };
       } else if (e.type === "tool.call.success") {
         next = {
           ...next,
@@ -146,30 +181,37 @@ function reducer(state: PageState, action: Action): PageState {
         // full text we would need a dedicated event, which we add
         // server-side later. For Day 5 the summary is good enough.
         if (e.data.kind === "respond" && e.data.summary) {
-          const assistantMsg: Message = {
-            id: `a_${e.seq}`,
-            role: "assistant",
-            content: e.data.summary,
-          };
-          next = { ...next, messages: [...next.messages, assistantMsg] };
+          const msgId = `a_${e.seq}`;
+          const alreadyAppended = next.messages.some((m) => m.id === msgId);
+          if (!alreadyAppended) {
+            const assistantMsg: Message = {
+              id: msgId,
+              role: "assistant",
+              content: e.data.summary,
+            };
+            next = { ...next, messages: [...next.messages, assistantMsg] };
+          }
         }
       } else if (e.type === "run.complete") {
         next = {
           ...next,
           status: "complete",
+          modelStatus: "healthy",
           stepsUsed: e.data.steps_used,
           tokensUsed: e.data.tokens_used,
           costUsd: Number(e.data.cost_usd.toFixed(6)),
         };
       } else if (e.type === "run.aborted") {
         const apology = e.data.partial_answer ?? "Run aborted.";
+        const msgId = `a_${e.seq}`;
+        const alreadyAppended = next.messages.some((m) => m.id === msgId);
         next = {
           ...next,
           status: "aborted",
-          messages: [
-            ...next.messages,
-            { id: `a_${e.seq}`, role: "assistant", content: apology },
-          ],
+          modelStatus: "exhausted",
+          messages: alreadyAppended
+            ? next.messages
+            : [...next.messages, { id: msgId, role: "assistant", content: apology }],
         };
       }
 
@@ -191,6 +233,30 @@ function reducer(state: PageState, action: Action): PageState {
       };
     }
 
+    case "replay_start": {
+      // Start a replay run. Same UI as a real run, but we will be
+      // synthesizing events from a fixture instead of subscribing to SSE.
+      const userMsg: Message = {
+        id: `u_${Date.now()}`,
+        role: "user",
+        content: action.message,
+      };
+      return {
+        ...state,
+        status: "running",
+        currentRunId: `replay_${action.fixtureName}_${Date.now()}`,
+        messages: [...state.messages, userMsg],
+        events: [],
+        activeModel: null,
+        modelStatus: "calling",
+        failoverChain: [],
+        tokensUsed: 0,
+        costUsd: 0,
+        stepsUsed: 0,
+        errorMessage: null,
+      };
+    }
+
     case "error":
       return { ...state, status: "idle", errorMessage: action.message };
 
@@ -203,17 +269,10 @@ function reducer(state: PageState, action: Action): PageState {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function pct(used: number, max: number): number {
-  if (max <= 0) return 0;
-  return Math.min(100, (used / max) * 100);
-}
-
-function shortModel(model: string | null): string {
-  if (!model) return "—";
-  if (model.startsWith("simulated-")) return model.replace("simulated-", "[sim] ");
-  if (model.startsWith("groq/")) return model.replace("groq/", "");
-  if (model.includes("/")) return model.split("/").slice(-1)[0]!;
-  return model;
+function formatCost(v: number): string {
+  if (v < 0.01) return `$${v.toFixed(4)}`;
+  if (v < 1) return `$${v.toFixed(3)}`;
+  return `$${v.toFixed(2)}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +309,28 @@ export default function IrPage() {
       return;
     }
     dispatch({ type: "chaos_toggled", tool, killed });
+  };
+
+  const onReplay = (fixture: Fixture) => {
+    if (state.status === "running") return;
+    dispatch({
+      type: "replay_start",
+      fixtureName: fixture.name,
+      message: `[replay] ${fixture.label}`,
+    });
+    // Schedule each event using the original wall-clock deltas, capped
+    // so the replay never crawls. Uses a 5x speed-up so the demo feels
+    // snappy without losing the cascade structure.
+    const events = fixture.events;
+    if (events.length === 0) return;
+    const t0 = new Date(events[0]!.ts).getTime();
+    for (const event of events) {
+      const dt = new Date(event.ts).getTime() - t0;
+      const delay = Math.min(dt / 5, 3000);
+      setTimeout(() => {
+        dispatch({ type: "event", event });
+      }, delay);
+    }
   };
 
   return (
@@ -322,8 +403,11 @@ export default function IrPage() {
         {/* Control panel */}
         <aside className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex flex-col gap-5 overflow-y-auto">
           <section>
-            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Active model</div>
-            <div className="font-mono text-sm text-zinc-100">{shortModel(state.activeModel)}</div>
+            <ActiveModel
+              model={state.activeModel}
+              status={state.modelStatus}
+              failoverChain={state.failoverChain}
+            />
           </section>
 
           <Separator className="bg-zinc-800" />
@@ -333,7 +417,7 @@ export default function IrPage() {
             <div className="space-y-2.5 text-xs">
               <BudgetBar label="Steps" used={state.stepsUsed} max={state.budgetMax.steps} format={(v) => String(v)} />
               <BudgetBar label="Tokens" used={state.tokensUsed} max={state.budgetMax.tokens} format={(v) => v.toLocaleString()} />
-              <BudgetBar label="Cost" used={state.costUsd} max={state.budgetMax.cost} format={(v) => `$${v.toFixed(4)}`} />
+              <BudgetBar label="Cost" used={state.costUsd} max={state.budgetMax.cost} format={formatCost} />
             </div>
           </section>
 
@@ -341,34 +425,20 @@ export default function IrPage() {
 
           <section>
             <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Tools</div>
-            <div className="space-y-2">
+            <div className="space-y-0">
               {KNOWN_TOOLS.map((tool) => {
                 const t = state.tools[tool]!;
-                const status = t.killed
-                  ? "killed"
-                  : t.circuitOpen
-                    ? "circuit open"
-                    : t.lastLatencyMs !== null
-                      ? `${t.lastLatencyMs}ms`
-                      : "—";
+                const status: ToolStatus = t.killed || t.circuitOpen ? "down" : "healthy";
                 return (
-                  <div key={tool} className="flex items-center justify-between text-xs">
-                    <div className="font-mono text-zinc-400">{tool}</div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={t.killed || t.circuitOpen ? "destructive" : "secondary"}
-                        className="font-mono"
-                      >
-                        {status}
-                      </Badge>
-                      {chaosOpen && (
-                        <Switch
-                          checked={!t.killed}
-                          onCheckedChange={(checked) => onChaosToggle(tool, !checked)}
-                        />
-                      )}
-                    </div>
-                  </div>
+                  <ToolRow
+                    key={tool}
+                    name={tool}
+                    status={status}
+                    lastLatencyMs={t.lastLatencyMs}
+                    killed={t.killed}
+                    chaosVisible={chaosOpen}
+                    onChaosToggle={(killed) => onChaosToggle(tool, killed)}
+                  />
                 );
               })}
             </div>
@@ -377,22 +447,33 @@ export default function IrPage() {
                 Flip a switch to kill that tool. The next run reroutes around it.
               </div>
             )}
+            {chaosOpen && (
+              <div className="mt-3 space-y-1">
+                <div className="text-[10px] uppercase tracking-widest text-zinc-600">
+                  Replay fixture
+                </div>
+                {listFixtures().map((fx) => (
+                  <button
+                    key={fx.name}
+                    type="button"
+                    onClick={() => onReplay(fx)}
+                    disabled={state.status === "running"}
+                    className="w-full text-left text-[11px] px-2 py-1.5 rounded bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <div className="font-mono">{fx.label}</div>
+                    <div className="text-zinc-500 text-[10px] leading-snug">{fx.description}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <Separator className="bg-zinc-800" />
 
           <section className="flex-1 min-h-0 flex flex-col">
             <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Event log</div>
-            <ScrollArea className="flex-1 max-h-72 -mr-2 pr-2">
-              <div className="space-y-1 text-xs font-mono text-zinc-500">
-                {state.events.length === 0 && <div className="text-zinc-700">(no events yet)</div>}
-                {state.events.map((e) => (
-                  <div key={e.seq} className="leading-tight">
-                    <span className="text-zinc-700">{String(e.seq).padStart(3, "0")}</span>{" "}
-                    <span className={eventColor(e.type)}>{e.type}</span>
-                  </div>
-                ))}
-              </div>
+            <ScrollArea className="flex-1 max-h-80 -mr-2 pr-2">
+              <EventLog events={state.events} isRunning={state.status === "running"} />
             </ScrollArea>
           </section>
         </aside>
@@ -401,40 +482,3 @@ export default function IrPage() {
   );
 }
 
-function BudgetBar({
-  label,
-  used,
-  max,
-  format,
-}: {
-  label: string;
-  used: number;
-  max: number;
-  format: (v: number) => string;
-}) {
-  const p = pct(used, max);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-zinc-400">{label}</span>
-        <span className="text-zinc-500 font-mono">
-          {format(used)} / {format(max)}
-        </span>
-      </div>
-      <div className="h-1 bg-zinc-800 rounded overflow-hidden">
-        <div
-          className={p >= 80 ? "h-full bg-amber-400" : "h-full bg-emerald-500"}
-          style={{ width: `${p}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function eventColor(type: string): string {
-  if (type.includes("failure") || type.includes("aborted") || type.includes("exceeded")) return "text-red-400";
-  if (type.includes("success") || type.includes("complete")) return "text-emerald-400";
-  if (type.includes("failover")) return "text-amber-400";
-  if (type.includes("warn") || type.includes("circuit")) return "text-amber-400";
-  return "text-zinc-400";
-}
