@@ -1,0 +1,695 @@
+{
+  "name": "deep_chaos",
+  "events": [
+    {
+      "seq": 12,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283186Z",
+      "step": 0,
+      "type": "llm.call.success",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "latency_ms": 1508,
+        "tokens_prompt": 331,
+        "tokens_completion": 16,
+        "cost_usd": 0.00020793
+      }
+    },
+    {
+      "seq": 13,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283356Z",
+      "step": 0,
+      "type": "step.start",
+      "data": {
+        "kind": "think"
+      }
+    },
+    {
+      "seq": 14,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283402Z",
+      "step": 0,
+      "type": "step.end",
+      "data": {
+        "kind": "think",
+        "duration_ms": 1508,
+        "succeeded": true,
+        "summary": "plan: use_tool(query_logs)"
+      }
+    },
+    {
+      "seq": 15,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283475Z",
+      "step": 1,
+      "type": "tool.call.start",
+      "data": {
+        "tool": "query_logs",
+        "args": {}
+      }
+    },
+    {
+      "seq": 16,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283505Z",
+      "step": 1,
+      "type": "tool.call.failure",
+      "data": {
+        "tool": "query_logs",
+        "attempt": 1,
+        "reason": "chaos_killed",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 17,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283640Z",
+      "step": 1,
+      "type": "step.start",
+      "data": {
+        "kind": "act"
+      }
+    },
+    {
+      "seq": 18,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.283679Z",
+      "step": 1,
+      "type": "step.end",
+      "data": {
+        "kind": "act",
+        "duration_ms": 0,
+        "succeeded": false,
+        "summary": "act(query_logs): unavailable"
+      }
+    },
+    {
+      "seq": 19,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284092Z",
+      "step": 2,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 20,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284477Z",
+      "step": 2,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 21,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284536Z",
+      "step": 2,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-claude-sonnet-4-5",
+        "to_model": "simulated-gpt-4o",
+        "reason": "UpstreamUnavailableError: simulated-claude-sonnet-4-5 is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 22,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284564Z",
+      "step": 2,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 23,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284585Z",
+      "step": 2,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 24,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284621Z",
+      "step": 2,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gpt-4o",
+        "to_model": "simulated-gemini-2-5-flash",
+        "reason": "UpstreamUnavailableError: simulated-gpt-4o is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 25,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284643Z",
+      "step": 2,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 26,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284658Z",
+      "step": 2,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 27,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284677Z",
+      "step": 2,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gemini-2-5-flash",
+        "to_model": "groq/llama-3.3-70b-versatile",
+        "reason": "UpstreamUnavailableError: simulated-gemini-2-5-flash is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 28,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.284709Z",
+      "step": 2,
+      "type": "llm.call.start",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 29,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848364Z",
+      "step": 2,
+      "type": "llm.call.success",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "latency_ms": 563,
+        "tokens_prompt": 379,
+        "tokens_completion": 16,
+        "cost_usd": 0.00023625000000000002
+      }
+    },
+    {
+      "seq": 30,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848502Z",
+      "step": 2,
+      "type": "step.start",
+      "data": {
+        "kind": "think"
+      }
+    },
+    {
+      "seq": 31,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848540Z",
+      "step": 2,
+      "type": "step.end",
+      "data": {
+        "kind": "think",
+        "duration_ms": 564,
+        "succeeded": true,
+        "summary": "plan: use_tool(fetch_metrics)"
+      }
+    },
+    {
+      "seq": 32,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848598Z",
+      "step": 3,
+      "type": "tool.call.start",
+      "data": {
+        "tool": "fetch_metrics",
+        "args": {}
+      }
+    },
+    {
+      "seq": 33,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848647Z",
+      "step": 3,
+      "type": "tool.call.failure",
+      "data": {
+        "tool": "fetch_metrics",
+        "attempt": 1,
+        "reason": "chaos_killed",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 34,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848697Z",
+      "step": 3,
+      "type": "step.start",
+      "data": {
+        "kind": "act"
+      }
+    },
+    {
+      "seq": 35,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848717Z",
+      "step": 3,
+      "type": "step.end",
+      "data": {
+        "kind": "act",
+        "duration_ms": 0,
+        "succeeded": false,
+        "summary": "act(fetch_metrics): unavailable"
+      }
+    },
+    {
+      "seq": 36,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848776Z",
+      "step": 4,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 37,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848800Z",
+      "step": 4,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 38,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848827Z",
+      "step": 4,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-claude-sonnet-4-5",
+        "to_model": "simulated-gpt-4o",
+        "reason": "UpstreamUnavailableError: simulated-claude-sonnet-4-5 is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 39,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848842Z",
+      "step": 4,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 40,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848853Z",
+      "step": 4,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 41,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848868Z",
+      "step": 4,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gpt-4o",
+        "to_model": "simulated-gemini-2-5-flash",
+        "reason": "UpstreamUnavailableError: simulated-gpt-4o is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 42,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848879Z",
+      "step": 4,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 43,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848889Z",
+      "step": 4,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 44,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848902Z",
+      "step": 4,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gemini-2-5-flash",
+        "to_model": "groq/llama-3.3-70b-versatile",
+        "reason": "UpstreamUnavailableError: simulated-gemini-2-5-flash is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 45,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:53.848918Z",
+      "step": 4,
+      "type": "llm.call.start",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 46,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.255099Z",
+      "step": 4,
+      "type": "llm.call.success",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "latency_ms": 406,
+        "tokens_prompt": 394,
+        "tokens_completion": 17,
+        "cost_usd": 0.00024589
+      }
+    },
+    {
+      "seq": 47,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.255224Z",
+      "step": 4,
+      "type": "step.start",
+      "data": {
+        "kind": "think"
+      }
+    },
+    {
+      "seq": 48,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.255275Z",
+      "step": 4,
+      "type": "step.end",
+      "data": {
+        "kind": "think",
+        "duration_ms": 406,
+        "succeeded": true,
+        "summary": "plan: use_tool(lookup_runbook)"
+      }
+    },
+    {
+      "seq": 49,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.255331Z",
+      "step": 5,
+      "type": "tool.call.start",
+      "data": {
+        "tool": "lookup_runbook",
+        "args": {}
+      }
+    },
+    {
+      "seq": 50,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960061Z",
+      "step": 5,
+      "type": "tool.call.success",
+      "data": {
+        "tool": "lookup_runbook",
+        "latency_ms": 704,
+        "result_summary": "runbook: Rollback a checkout deploy"
+      }
+    },
+    {
+      "seq": 51,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960287Z",
+      "step": 5,
+      "type": "step.start",
+      "data": {
+        "kind": "act"
+      }
+    },
+    {
+      "seq": 52,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960338Z",
+      "step": 5,
+      "type": "step.end",
+      "data": {
+        "kind": "act",
+        "duration_ms": 704,
+        "succeeded": true,
+        "summary": "act(lookup_runbook): ok"
+      }
+    },
+    {
+      "seq": 53,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960488Z",
+      "step": 6,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 54,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960523Z",
+      "step": 6,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-claude-sonnet-4-5",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 55,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960562Z",
+      "step": 6,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-claude-sonnet-4-5",
+        "to_model": "simulated-gpt-4o",
+        "reason": "UpstreamUnavailableError: simulated-claude-sonnet-4-5 is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 56,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960580Z",
+      "step": 6,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 57,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960595Z",
+      "step": 6,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gpt-4o",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 58,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960610Z",
+      "step": 6,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gpt-4o",
+        "to_model": "simulated-gemini-2-5-flash",
+        "reason": "UpstreamUnavailableError: simulated-gpt-4o is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 59,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960621Z",
+      "step": 6,
+      "type": "llm.call.start",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 60,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960661Z",
+      "step": 6,
+      "type": "llm.call.failure",
+      "data": {
+        "model": "simulated-gemini-2-5-flash",
+        "attempt": 1,
+        "reason": "simulated_upstream_unavailable",
+        "retryable": false
+      }
+    },
+    {
+      "seq": 61,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960676Z",
+      "step": 6,
+      "type": "llm.failover",
+      "data": {
+        "from_model": "simulated-gemini-2-5-flash",
+        "to_model": "groq/llama-3.3-70b-versatile",
+        "reason": "UpstreamUnavailableError: simulated-gemini-2-5-flash is a simulated upstream stub",
+        "latency_ms_added": 0
+      }
+    },
+    {
+      "seq": 62,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:54.960690Z",
+      "step": 6,
+      "type": "llm.call.start",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "attempt": 1
+      }
+    },
+    {
+      "seq": 63,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587397Z",
+      "step": 6,
+      "type": "llm.call.success",
+      "data": {
+        "model": "groq/llama-3.3-70b-versatile",
+        "latency_ms": 626,
+        "tokens_prompt": 471,
+        "tokens_completion": 81,
+        "cost_usd": 0.00034187999999999997
+      }
+    },
+    {
+      "seq": 64,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587523Z",
+      "step": 6,
+      "type": "step.start",
+      "data": {
+        "kind": "think"
+      }
+    },
+    {
+      "seq": 65,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587554Z",
+      "step": 6,
+      "type": "step.end",
+      "data": {
+        "kind": "think",
+        "duration_ms": 627,
+        "succeeded": true,
+        "summary": "plan: respond (The incident inc_checkout_latency is related to checkout lat)"
+      }
+    },
+    {
+      "seq": 66,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587610Z",
+      "step": 7,
+      "type": "step.start",
+      "data": {
+        "kind": "respond"
+      }
+    },
+    {
+      "seq": 67,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587630Z",
+      "step": 7,
+      "type": "step.end",
+      "data": {
+        "kind": "respond",
+        "duration_ms": 0,
+        "succeeded": true,
+        "summary": "The incident inc_checkout_latency is related to checkout latency and the recommended fix involves identifying the bad de..."
+      }
+    },
+    {
+      "seq": 68,
+      "run_id": "run_bce54fa42c814812",
+      "ts": "2026-05-25T16:54:55.587665Z",
+      "step": null,
+      "type": "run.complete",
+      "data": {
+        "steps_used": 8,
+        "tokens_used": 1705,
+        "cost_usd": 0.001032,
+        "duration_ms": 3813
+      }
+    }
+  ]
+}
