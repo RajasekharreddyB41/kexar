@@ -120,6 +120,15 @@ async def _main_async(user_message: str, to_kill: list[str]) -> None:
     try:
         await _run(user_message)
     finally:
+        # Wait for background tasks (e.g. persist_run flushing event log
+        # to Postgres) BEFORE closing the pool. Without this, the pool
+        # closes underneath the persist task and the UPDATE fails with
+        # 'pool is closing'. Short timeout caps shutdown latency.
+        pending = [
+            t for t in asyncio.all_tasks() if t is not asyncio.current_task()
+        ]
+        if pending:
+            await asyncio.wait(pending, timeout=3.0)
         await close_pool()
 
 

@@ -23,6 +23,7 @@ is the spec for what a step is and what status transitions are valid.
 
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -48,6 +49,7 @@ from kexar.runtime.tools import (
     ToolUnavailableError,
     call_tool,
 )
+from kexar.db.run_persistence import _consume, register_persistence
 
 # Maximum chars of an LLM response we shove back into history. Bigger
 # than this, we truncate. Keeps prompt size bounded across many steps.
@@ -90,6 +92,16 @@ async def run_incident(
         run_kwargs["id"] = run_id
     run = Run(**run_kwargs)
     run.status = RunStatus.RUNNING
+
+    # Persist this run's event log to Postgres. Two phases:
+    # (1) register_persistence is awaited so the bus subscriber queue
+    # is in place BEFORE any event is published. This closes the race
+    # where RunStart fired before the previous fire-and-forget task
+    # had a chance to actually call bus.subscribe().
+    # (2) _consume drains the queue in the background until run.complete
+    # or run.aborted, then flushes to Postgres.
+    _persist_queue = await register_persistence(run.id, incident_id)
+    asyncio.create_task(_consume(run.id, _persist_queue))  # noqa: RUF006
 
     await bus.publish(
         run.id,
