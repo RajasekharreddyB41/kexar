@@ -241,22 +241,28 @@ async def _step_act(run: Run, *, tool: str, args: dict[str, Any]) -> None:
 
 
 async def _step_respond(run: Run, *, draft: str | None = None) -> None:
-    """Produce the final answer. Either reuse the draft from think or
-    ask the model one more time for a clean summary."""
+    """Produce the final answer.
+
+    Always calls the LLM with the respond prompt. We used to short-circuit
+    when the planner returned an inline draft, but that bypassed the
+    respond system prompt entirely. The prompt enforces user-facing
+    structure (degraded-mode opener, no internal tool names, no hedging),
+    so consistency is worth one extra cheap LLM call per run.
+    """
     step = _start_step(run, kind=StepKind.RESPOND)
 
-    if draft:
-        answer = draft
-        model_used = "<previous_step>"
-    else:
-        response = await call_llm(
-            run.id,
-            step=step.index,
-            messages=_build_respond_messages(run),
-            budget=run.budget,
-        )
-        answer = response.content
-        model_used = response.model_used
+    # draft is preserved in the signature for caller compatibility but
+    # intentionally unused. The respond LLM call is mandatory.
+    _ = draft
+
+    response = await call_llm(
+        run.id,
+        step=step.index,
+        messages=_build_respond_messages(run),
+        budget=run.budget,
+    )
+    answer = response.content
+    model_used = response.model_used
 
     step.model_used = model_used
     step.succeeded = True
@@ -441,6 +447,21 @@ def _maybe_warn_budget(run: Run) -> None:
 # -----------------------------------------------------------------------------
 
 
+# Maps internal tool IDs to user-facing language. Used in respond-step
+# context so the agent says "the metrics service" instead of leaking
+# internal names like "fetch_metrics" to the SRE on the other end.
+TOOL_LABELS: dict[str, str] = {
+    "query_logs": "the logs service",
+    "fetch_metrics": "the metrics service",
+    "lookup_runbook": "the runbook service",
+}
+
+
+def _label(tool: str) -> str:
+    """Return the user-facing label for a tool, or the raw name as fallback."""
+    return TOOL_LABELS.get(tool, tool)
+
+
 _PLANNER_SYSTEM = """You are Kexar IR, an incident response copilot.
 You are mid-investigation. The user posed an incident. You have three
 tools: query_logs, fetch_metrics, lookup_runbook.
@@ -500,9 +521,70 @@ def _build_planning_messages(run: Run) -> list[dict[str, str]]:
     ]
 
 
-_RESPOND_SYSTEM = """You are Kexar IR. Produce the final answer for the user.
-Keep it to two or three sentences. Be specific. If tools were unavailable,
-say what is missing. Do not invent data."""
+_RESPOND_SYSTEM = """You are Kexar IR, an incident response copilot. Produce
+the final answer for an on-call SRE.
+
+ABSOLUTE RULE (read this twice):
+
+Look at the user message you are about to receive. Search it for the
+exact literal phrase: "Services I could not reach"
+
+If that exact phrase IS NOT in the user message, you are FORBIDDEN
+from writing the words "I could not reach" anywhere in your response.
+Forbidden. Not even once. Not in any form. Every tool succeeded, so
+do not invent a failure. Lead with the concrete finding.
+
+If that exact phrase IS in the user message, your FIRST sentence MUST
+use this exact shape:
+    "I could not reach <names> right now."
+Then "I can still help." Then your concrete finding from the data
+you DO have.
+
+LANGUAGE:
+
+- Direct, not hedged. "Roll back v2.18.0" not "you may want to consider
+  rolling back."
+- Plain English. Never use internal tool IDs like fetch_metrics,
+  query_logs, lookup_runbook.
+- Plain prose. No bullets, no markdown, no headers.
+- Two to four sentences total.
+- Never invent data. Never invent a failure that did not happen.
+
+EXAMPLES:
+
+Example 1 (all tools succeeded, NO 'Services I could not reach' line
+in user message). Notice the answer does NOT contain "I could not
+reach":
+    "Checkout p99 jumped from 80ms to 4.2s at 02:14, right after the
+    v2.18.0 deploy at 02:13. Roll back: kubectl rollout undo
+    deployment/checkout -n prod."
+
+Example 2 (all tools succeeded). Notice the answer does NOT contain
+"I could not reach":
+    "The v2.18.0 deploy at 02:13 caused checkout p99 to spike from
+    80ms to 4.2s. The runbook says roll back: kubectl rollout undo
+    deployment/checkout -n prod."
+
+Example 3 (one service down: the metrics service):
+    "I could not reach the metrics service right now. I can still
+    help. The logs show the v2.18.0 deploy landed at 02:13 and
+    complaints followed. Roll back with kubectl rollout undo
+    deployment/checkout -n prod."
+
+Example 4 (two services down: metrics and logs):
+    "I could not reach the metrics service and the logs service right
+    now. I can still help. The runbook for inc_checkout_latency says
+    roll back the last deploy: kubectl rollout undo deployment/checkout
+    -n prod."
+
+Example 5 (all three services down):
+    "I could not reach the metrics service, the logs service, and the
+    runbook service right now. I cannot diagnose without any signals.
+    Page the on-call platform engineer."
+
+Follow these shapes exactly. The phrase "I could not reach" appears
+in your response ONLY when "Services I could not reach" appears in
+the user message. No exceptions."""
 
 
 def _build_respond_messages(run: Run) -> list[dict[str, str]]:
@@ -516,10 +598,8 @@ def _build_respond_messages(run: Run) -> list[dict[str, str]]:
             context_lines.append(f"  {tool}: {payload_str}")
 
     if run.state.unavailable_tools:
-        context_lines.append(
-            "Tools that were unavailable: "
-            + ", ".join(sorted(run.state.unavailable_tools))
-        )
+        labels = [_label(t) for t in sorted(run.state.unavailable_tools)]
+        context_lines.append("Services I could not reach: " + ", ".join(labels))
 
     return [
         {"role": "system", "content": _RESPOND_SYSTEM},
