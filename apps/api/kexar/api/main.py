@@ -17,6 +17,7 @@ Day 4 in progress. Chaos endpoint and replay land in a follow-up commit.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from contextlib import asynccontextmanager
 from typing import Any
@@ -190,6 +191,96 @@ async def stream_events(run_id: str, request: Request) -> EventSourceResponse:
 
             # Terminal events close the stream.
             if event.type in ("run.complete", "run.aborted"):
+                break
+
+    return EventSourceResponse(event_generator())
+
+
+# -----------------------------------------------------------------------------
+# Replay endpoint
+#
+# Re-streams a persisted run from runs.event_log over SSE with realistic
+# inter-event timing. The frontend connects to this the same way it
+# connects to the live stream and renders events identically.
+#
+# Why bother: gives us a deterministic, network-free fallback path if a
+# live run fails on camera. Anyone can replay any past run by ID. The
+# replay timing comes from the stored event.ts values, sped up so the
+# demo does not drag.
+#
+# Speed factor and cap: 3x faster than wall-clock, max 1500ms between
+# events. Tuned so a typical 8-step run replays in ~3-5 seconds, with
+# enough breathing room that the user can see each event land.
+# -----------------------------------------------------------------------------
+
+_REPLAY_SPEED = 3.0       # divide deltas by this
+_REPLAY_MAX_GAP_MS = 1500 # cap each inter-event sleep
+
+
+@app.post("/api/runs/{run_id}/replay")
+async def replay_run(run_id: str, request: Request) -> EventSourceResponse:
+    """Stream a persisted run back to the client over SSE.
+
+    404 if the run is not in Postgres. 409 if the run is in Postgres
+    but its event_log is empty (run is still in progress or never
+    completed). Otherwise streams every persisted event with timing
+    derived from the stored timestamps.
+    """
+    from datetime import datetime
+
+    from kexar.db.client import acquire
+
+    async with acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT id, status, event_log FROM runs WHERE id = $1",
+            run_id,
+        )
+
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+
+    events = row["event_log"]
+    if not events:
+        raise HTTPException(
+            status_code=409,
+            detail=f"run {run_id} has no persisted event log",
+        )
+
+    async def event_generator():
+        # Parse timestamps once so the sleep loop is tight.
+        ts_list: list[float] = []
+        for e in events:
+            ts_str = e.get("ts")
+            if not ts_str:
+                ts_list.append(0.0)
+                continue
+            # Pydantic serialized datetime as ISO 8601 with timezone.
+            try:
+                ts_list.append(datetime.fromisoformat(ts_str).timestamp())
+            except (ValueError, TypeError):
+                ts_list.append(0.0)
+
+        for i, event in enumerate(events):
+            if await request.is_disconnected():
+                break
+
+            # Inter-event delay based on original timestamps.
+            if i > 0 and ts_list[i] > 0 and ts_list[i - 1] > 0:
+                delta_s = max(0.0, ts_list[i] - ts_list[i - 1])
+                delay_ms = min(
+                    int(delta_s * 1000 / _REPLAY_SPEED),
+                    _REPLAY_MAX_GAP_MS,
+                )
+                if delay_ms > 0:
+                    await asyncio.sleep(delay_ms / 1000)
+
+            yield {
+                "event": event.get("type", "unknown"),
+                "id": str(event.get("seq", i)),
+                "data": json.dumps(event),
+            }
+
+            if event.get("type") in ("run.complete", "run.aborted"):
                 break
 
     return EventSourceResponse(event_generator())
