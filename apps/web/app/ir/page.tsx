@@ -73,7 +73,10 @@ const INITIAL_STATE: PageState = {
   stepsUsed: 0,
   budgetMax: { tokens: 20000, cost: 0.5, steps: 10 },
   tools: Object.fromEntries(
-    KNOWN_TOOLS.map((t) => [t, { killed: false, lastLatencyMs: null, circuitOpen: false }])
+    KNOWN_TOOLS.map((t) => [
+      t,
+      { killed: false, lastLatencyMs: null, circuitOpen: false },
+    ]),
   ),
   errorMessage: null,
 };
@@ -131,7 +134,8 @@ function reducer(state: PageState, action: Action): PageState {
           ...next,
           activeModel: e.data.model,
           modelStatus: "healthy",
-          tokensUsed: next.tokensUsed + (e.data.tokens_prompt + e.data.tokens_completion),
+          tokensUsed:
+            next.tokensUsed + (e.data.tokens_prompt + e.data.tokens_completion),
           costUsd: Number((next.costUsd + e.data.cost_usd).toFixed(6)),
         };
       } else if (e.type === "llm.call.failure") {
@@ -156,9 +160,36 @@ function reducer(state: PageState, action: Action): PageState {
           tools: {
             ...next.tools,
             [e.data.tool]: {
-              ...(next.tools[e.data.tool] ?? { killed: false, lastLatencyMs: null, circuitOpen: false }),
+              ...(next.tools[e.data.tool] ?? {
+                killed: false,
+                lastLatencyMs: null,
+                circuitOpen: false,
+              }),
               lastLatencyMs: e.data.latency_ms,
               circuitOpen: false,
+            },
+          },
+        };
+      } else if (e.type === "tool.call.failure") {
+        // A chaos-killed tool is effectively down even though the circuit
+        // breaker may not have opened (one-shot failure in fixtures, or
+        // first failure of three in a live run). Surface the down state
+        // immediately so the Tools panel matches what actually happened.
+        const isChaos = e.data.reason === "chaos_killed";
+        next = {
+          ...next,
+          tools: {
+            ...next.tools,
+            [e.data.tool]: {
+              ...(next.tools[e.data.tool] ?? {
+                killed: false,
+                lastLatencyMs: null,
+                circuitOpen: false,
+              }),
+              lastLatencyMs: null,
+              circuitOpen: isChaos
+                ? true
+                : (next.tools[e.data.tool]?.circuitOpen ?? false),
             },
           },
         };
@@ -168,7 +199,11 @@ function reducer(state: PageState, action: Action): PageState {
           tools: {
             ...next.tools,
             [e.data.tool]: {
-              ...(next.tools[e.data.tool] ?? { killed: false, lastLatencyMs: null, circuitOpen: false }),
+              ...(next.tools[e.data.tool] ?? {
+                killed: false,
+                lastLatencyMs: null,
+                circuitOpen: false,
+              }),
               circuitOpen: true,
             },
           },
@@ -211,7 +246,10 @@ function reducer(state: PageState, action: Action): PageState {
           modelStatus: "exhausted",
           messages: alreadyAppended
             ? next.messages
-            : [...next.messages, { id: msgId, role: "assistant", content: apology }],
+            : [
+                ...next.messages,
+                { id: msgId, role: "assistant", content: apology },
+              ],
         };
       }
 
@@ -337,7 +375,9 @@ export default function IrPage() {
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <header className="border-b border-zinc-800 px-6 py-3 flex items-center justify-between bg-zinc-950">
         <div className="flex items-center gap-3">
-          <span className="text-xs uppercase tracking-widest text-zinc-500">Kexar</span>
+          <span className="text-xs uppercase tracking-widest text-zinc-500">
+            Kexar
+          </span>
           <Separator orientation="vertical" className="h-4 bg-zinc-800" />
           <span className="text-sm text-zinc-300">IR copilot</span>
         </div>
@@ -354,7 +394,9 @@ export default function IrPage() {
             {state.messages.length === 0 && state.status === "idle" && (
               <div className="text-zinc-500 text-sm leading-relaxed">
                 Pre-seeded incident:{" "}
-                <span className="text-zinc-300">Checkout API p99 latency spike at 02:14 UTC.</span>
+                <span className="text-zinc-300">
+                  Checkout API p99 latency spike at 02:14 UTC.
+                </span>
                 <br />
                 Ask anything to start the agent.
               </div>
@@ -369,7 +411,9 @@ export default function IrPage() {
                       : "mr-auto max-w-prose bg-zinc-800 text-zinc-100 px-4 py-2.5 rounded-2xl rounded-tl-sm border border-zinc-700"
                   }
                 >
-                  <div className="text-sm whitespace-pre-wrap leading-relaxed">{m.content}</div>
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                    {m.content}
+                  </div>
                 </div>
               ))}
               {state.status === "running" && (
@@ -386,7 +430,10 @@ export default function IrPage() {
               {state.errorMessage}
             </div>
           )}
-          <form onSubmit={onSubmit} className="border-t border-zinc-800 p-3 flex items-center gap-2">
+          <form
+            onSubmit={onSubmit}
+            className="border-t border-zinc-800 p-3 flex items-center gap-2"
+          >
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -394,7 +441,10 @@ export default function IrPage() {
               disabled={state.status === "running"}
               className="bg-zinc-950 border-zinc-800 text-zinc-100 placeholder:text-zinc-600"
             />
-            <Button type="submit" disabled={state.status === "running" || !input.trim()}>
+            <Button
+              type="submit"
+              disabled={state.status === "running" || !input.trim()}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </form>
@@ -413,22 +463,42 @@ export default function IrPage() {
           <Separator className="bg-zinc-800" />
 
           <section>
-            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Budget</div>
+            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">
+              Budget
+            </div>
             <div className="space-y-2.5 text-xs">
-              <BudgetBar label="Steps" used={state.stepsUsed} max={state.budgetMax.steps} format={(v) => String(v)} />
-              <BudgetBar label="Tokens" used={state.tokensUsed} max={state.budgetMax.tokens} format={(v) => v.toLocaleString()} />
-              <BudgetBar label="Cost" used={state.costUsd} max={state.budgetMax.cost} format={formatCost} />
+              <BudgetBar
+                label="Steps"
+                used={state.stepsUsed}
+                max={state.budgetMax.steps}
+                format={(v) => String(v)}
+              />
+              <BudgetBar
+                label="Tokens"
+                used={state.tokensUsed}
+                max={state.budgetMax.tokens}
+                format={(v) => v.toLocaleString()}
+              />
+              <BudgetBar
+                label="Cost"
+                used={state.costUsd}
+                max={state.budgetMax.cost}
+                format={formatCost}
+              />
             </div>
           </section>
 
           <Separator className="bg-zinc-800" />
 
           <section>
-            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Tools</div>
+            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">
+              Tools
+            </div>
             <div className="space-y-0">
               {KNOWN_TOOLS.map((tool) => {
                 const t = state.tools[tool]!;
-                const status: ToolStatus = t.killed || t.circuitOpen ? "down" : "healthy";
+                const status: ToolStatus =
+                  t.killed || t.circuitOpen ? "down" : "healthy";
                 return (
                   <ToolRow
                     key={tool}
@@ -444,7 +514,8 @@ export default function IrPage() {
             </div>
             {chaosOpen && (
               <div className="text-xs text-zinc-600 mt-2 leading-relaxed">
-                Flip a switch to kill that tool. The next run reroutes around it.
+                Flip a switch to kill that tool. The next run reroutes around
+                it.
               </div>
             )}
             {chaosOpen && (
@@ -461,7 +532,9 @@ export default function IrPage() {
                     className="w-full text-left text-[11px] px-2 py-1.5 rounded bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     <div className="font-mono">{fx.label}</div>
-                    <div className="text-zinc-500 text-[10px] leading-snug">{fx.description}</div>
+                    <div className="text-zinc-500 text-[10px] leading-snug">
+                      {fx.description}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -471,9 +544,14 @@ export default function IrPage() {
           <Separator className="bg-zinc-800" />
 
           <section className="flex-1 min-h-0 flex flex-col">
-            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">Event log</div>
+            <div className="text-xs uppercase tracking-widest text-zinc-500 mb-2">
+              Event log
+            </div>
             <ScrollArea className="flex-1 max-h-80 -mr-2 pr-2">
-              <EventLog events={state.events} isRunning={state.status === "running"} />
+              <EventLog
+                events={state.events}
+                isRunning={state.status === "running"}
+              />
             </ScrollArea>
           </section>
         </aside>
@@ -481,4 +559,3 @@ export default function IrPage() {
     </main>
   );
 }
-
