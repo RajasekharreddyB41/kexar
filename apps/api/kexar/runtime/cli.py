@@ -17,7 +17,6 @@ real-time SSE event stream lands Day 4 with the API endpoint.
 """
 
 from __future__ import annotations
-
 import asyncio
 import sys
 

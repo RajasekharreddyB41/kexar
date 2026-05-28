@@ -1,6 +1,6 @@
 # Build Plan
 
-**For:** Sentinel
+**For:** Kexar
 **Date:** 2026-05-19
 **Status:** Locked, drives daily execution
 **Deadline:** Thursday, May 28, 2026, 10:00 AM PT (final submissions due)
@@ -45,7 +45,7 @@ Day 9 is morning-only. Submission deadline is 10:00 AM PT which is 1:00 PM ET. P
 **Tasks (in this order, the order matters):**
 
 1. **TrueFoundry first.** Create account. Get API key. Make one test call from a Python REPL to confirm the gateway works. Confirm free tier limits. Set $20 budget cap in their dashboard. If any of this is blocked, escalate via the hackathon Discord immediately and pivot to OpenRouter as a temporary gateway.
-2. Create GitHub repo `sentinel` (private until Day 8).
+2. Create GitHub repo `kexar` (private until Day 8).
 3. Set up monorepo structure per architecture doc (`apps/web`, `apps/api`, `docs`).
 4. Create Vercel project, connect to repo, deploy a placeholder Next.js page.
 5. Create Railway project, connect to repo, deploy a placeholder FastAPI app.
@@ -57,7 +57,7 @@ Day 9 is morning-only. Submission deadline is 10:00 AM PT which is 1:00 PM ET. P
 11. Verify both apps deploy on push.
 12. Write `README.md` with one paragraph and a "build status" badge.
 
-**End-of-day demo:** Visit the custom domain, see the Sentinel placeholder page. Hit the backend health endpoint, get 200. Make one LLM call through TrueFoundry from your laptop, see a response.
+**End-of-day demo:** Visit the custom domain, see the Kexar placeholder page. Hit the backend health endpoint, get 200. Make one LLM call through TrueFoundry from your laptop, see a response.
 
 **Cut list (if running long):** Custom domain can wait until Day 8. CI can wait until Day 2.
 
@@ -79,7 +79,7 @@ Day 9 is morning-only. Submission deadline is 10:00 AM PT which is 1:00 PM ET. P
 6. Implement `orchestrator.py`: the main loop (think -> act -> respond).
 7. Stub `tools.py` with one fake tool that always succeeds.
 8. Add latency timing to every LLM call. Log: first token time, full response time, retries, failover overhead. These map to the latency budgets in the architecture doc.
-9. Write a CLI runner: `python -m sentinel.runtime.cli "incident description"`. Prints events as they happen, with timing.
+9. Write a CLI runner: `python -m kexar.runtime.cli "incident description"`. Prints events as they happen, with timing.
 
 **End-of-day demo:** Run the CLI with a test prompt. See the agent reason, call the fake tool, return an answer. See events stream to the terminal. Manually fail Claude by setting a bogus model name, see failover to GPT-4o. Check that first-token latency is under 1.2 seconds.
 
@@ -95,7 +95,7 @@ Day 9 is morning-only. Submission deadline is 10:00 AM PT which is 1:00 PM ET. P
 
 **Tasks:**
 
-1. Implement local MCP server in `apps/api/sentinel/mcp/server.py`.
+1. Implement local MCP server in `apps/api/kexar/mcp/server.py`.
 2. Implement `query_logs` tool. Reads from `incident_signals` table where type='log'.
 3. Implement `fetch_metrics` tool. Reads from `incident_signals` where type='metric'.
 4. Implement `lookup_runbook` tool. Reads from `incident_signals` where type='runbook'.
@@ -161,7 +161,7 @@ Day 9 is morning-only. Submission deadline is 10:00 AM PT which is 1:00 PM ET. P
 
 ## Day 6, Sunday May 25: Control panel
 
-**Why this matters:** The control panel is the hero UI. It is the visible proof that Sentinel owns the resilience layer. Today is the day judges see the differentiator.
+**Why this matters:** The control panel is the hero UI. It is the visible proof that Kexar owns the resilience layer. Today is the day judges see the differentiator.
 
 **Tasks:**
 

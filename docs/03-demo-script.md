@@ -1,6 +1,6 @@
 # Demo Script
 
-**For:** Sentinel
+**For:** Kexar
 **Format:** Pre-recorded video, 2:45 to 3:00 final length
 **Date:** 2026-05-19
 **Status:** Locked, drives architecture
@@ -18,7 +18,7 @@ Hackathon submission needs: demo video 1 to 3 minutes, project page write-up, sc
 
 ## The story in one paragraph
 
-A senior SRE is paged at 2am. She opens Sentinel IR and starts working the incident with the AI copilot. Halfway through, the LLM provider has a partial outage. Then a tool times out. Then the gateway hits a rate limit. A normal agent would have died three times. Sentinel keeps going, tells her in plain language what is degraded, and helps her resolve the incident anyway. The control panel shows the failovers in real time. Cut to pitch slide.
+A senior SRE is paged at 2am. She opens Kexar IR and starts working the incident with the AI copilot. Halfway through, the LLM provider has a partial outage. Then a tool times out. Then the gateway hits a rate limit. A normal agent would have died three times. Kexar keeps going, tells her in plain language what is degraded, and helps her resolve the incident anyway. The control panel shows the failovers in real time. Cut to pitch slide.
 
 That paragraph is the whole video. Everything below is execution detail.
 
@@ -27,8 +27,8 @@ That paragraph is the whole video. Everything below is execution detail.
 ## Pre-roll setup (before recording)
 
 - Browser at 1920x1080, clean profile, no extensions visible.
-- Two tabs ready: Sentinel IR (our app) and the TrueFoundry Gateway dashboard (their real dashboard, logged in).
-- Sentinel IR loaded with the incident scenario pre-seeded: "API latency spiking on checkout service since 02:14 UTC."
+- Two tabs ready: Kexar IR (our app) and the TrueFoundry Gateway dashboard (their real dashboard, logged in).
+- Kexar IR loaded with the incident scenario pre-seeded: "API latency spiking on checkout service since 02:14 UTC."
 - Chaos controls in the control panel, hidden by default, revealed with a toggle. Operator (us) clicks them on cue.
 - Audio: clean mic, no room echo. Voiceover recorded separately, not live.
 - Background music: subtle, low volume, ends before the pitch slide.
@@ -51,13 +51,13 @@ Cut to a fake terminal showing a typical agent crashing. Stack trace. `openai.Ra
 **Visual:** The crashing agent freezes mid-stack-trace. Text overlay: "This is every agent in production."
 
 **Voiceover (0:15 to 0:30):**
-"Every team building agents in 2026 is reinventing the same retry logic, the same fallback chains, the same broken degraded-mode behavior. We are building the runtime that bakes resilience in. This is Sentinel."
+"Every team building agents in 2026 is reinventing the same retry logic, the same fallback chains, the same broken degraded-mode behavior. We are building the runtime that bakes resilience in. This is Kexar."
 
-**Visual:** Sentinel logo. 1.5 seconds. Cut.
+**Visual:** Kexar logo. 1.5 seconds. Cut.
 
 ### Act 2: The happy path (0:30 to 1:15)
 
-**Visual:** Cut to Sentinel IR app. Clean, split view. Chat on the left, control panel on the right. The SRE has just typed: "Checkout API p99 latency went from 80ms to 4.2s at 02:14. What broke?"
+**Visual:** Cut to Kexar IR app. Clean, split view. Chat on the left, control panel on the right. The SRE has just typed: "Checkout API p99 latency went from 80ms to 4.2s at 02:14. What broke?"
 
 The agent responds in a streamed message. As it streams, the control panel lights up.
 
@@ -71,7 +71,7 @@ The agent responds in a streamed message. As it streams, the control panel light
 - Status: Healthy
 
 **Voiceover (0:30 to 0:55):**
-"Sentinel wraps your agent in a resilience runtime. It routes through TrueFoundry's AI Gateway for multi-provider failover. It calls MCP tools with timeouts, retries, and circuit breakers. And it makes every decision visible in the control panel."
+"Kexar wraps your agent in a resilience runtime. It routes through TrueFoundry's AI Gateway for multi-provider failover. It calls MCP tools with timeouts, retries, and circuit breakers. And it makes every decision visible in the control panel."
 
 **Visual:** Agent finishes its first analysis. Shows a summary: "Latency spike correlates with a deploy at 02:13. New version of checkout-service introduced a synchronous call to the fraud-check service. Recommend rollback."
 
@@ -105,7 +105,7 @@ The agent's response continues without breaking. The SRE never sees the failure 
 **Cut to TrueFoundry dashboard for 3 seconds.** Show the actual failover event logged in their UI. This is the sponsor moment.
 
 **Voiceover (1:40):**
-"TrueFoundry's gateway handles the HTTP-level routing. Sentinel handles what the user sees."
+"TrueFoundry's gateway handles the HTTP-level routing. Kexar handles what the user sees."
 
 #### Failure 2: MCP tool dies (1:40 to 2:05)
 
@@ -125,7 +125,7 @@ Then the agent does the thing that wins this category. It responds:
 "I cannot reach the metrics service right now. I can still help. Based on the logs I already pulled and the runbook for this service, the error rate is likely elevated on the /checkout endpoint specifically. The deploy at 02:13 is still the most likely cause. Want me to draft a rollback command using the runbook?"
 
 **Voiceover (1:40 to 2:05):**
-"This is where most agents would crash or hallucinate. Sentinel does neither. It recognizes the tool failure, tells the user exactly what is degraded, and reasons over what it can still do. That is the runtime owning the user-visible failure story. No framework gives you this."
+"This is where most agents would crash or hallucinate. Kexar does neither. It recognizes the tool failure, tells the user exactly what is degraded, and reasons over what it can still do. That is the runtime owning the user-visible failure story. No framework gives you this."
 
 #### Failure 3: Cost ceiling and rate limit (2:05 to 2:30)
 
@@ -148,18 +148,18 @@ The agent finishes the summary on the third model. The control panel shows the f
 
 ### Act 4: The pitch (2:30 to 2:50)
 
-**Visual:** Cut to a clean slide. Sentinel logo at top.
+**Visual:** Cut to a clean slide. Kexar logo at top.
 
 Three lines stagger in:
 
 - Gateways route.
 - Frameworks orchestrate.
-- **Nobody owns what your agent does when all of that runs out. Sentinel does.**
+- **Nobody owns what your agent does when all of that runs out. Kexar does.**
 
 **Voiceover (2:30 to 2:50):**
-"Gateways route. Frameworks orchestrate. Observability watches. Nobody owns the user-visible resilience layer that wraps agent execution. That is Sentinel. Built on TrueFoundry. Open source core. We think every production agent needs this."
+"Gateways route. Frameworks orchestrate. Observability watches. Nobody owns the user-visible resilience layer that wraps agent execution. That is Kexar. Built on TrueFoundry. Open source core. We think every production agent needs this."
 
-**Final frame:** Sentinel logo, GitHub URL, one line: "Try it: github.com/[username]/sentinel"
+**Final frame:** Kexar logo, GitHub URL, one line: "Try it: github.com/RajasekharreddyB41/kexar"
 
 Hold for 2 seconds. Fade to black.
 
@@ -169,7 +169,7 @@ Hold for 2 seconds. Fade to black.
 
 Working backwards from the script. If it is not here, we do not build it.
 
-**Sentinel IR app (the demo surface):**
+**Kexar IR app (the demo surface):**
 
 - Two-pane layout: chat on left, control panel on right.
 - Streamed agent responses.
@@ -222,7 +222,7 @@ Working backwards from the script. If it is not here, we do not build it.
 - **Network partition / total internet outage.** Hard to demo, the recovery story is "wait." Skip.
 - **Hallucination detection.** Different category, would dilute the message.
 - **Prompt injection defense.** Same. Different category.
-- **Multi-agent coordination failures.** Sentinel IR uses a single agent. Multi-agent is a future story.
+- **Multi-agent coordination failures.** Kexar IR uses a single agent. Multi-agent is a future story.
 
 If asked "what about X" in Q&A, the answer is "the runtime supports it, the demo focuses on the three failure modes most teams hit in production today."
 

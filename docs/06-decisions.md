@@ -1,6 +1,6 @@
 # Decisions Log
 
-**For:** Sentinel
+**For:** Kexar
 **Purpose:** One line per non-obvious decision. Captures what, when, and why. Future-you reads this when you cannot remember why something is the way it is.
 **Format:** Date | Decision | Why | Status (active / revisited / reversed)
 **Rule:** Add a row when you make a call that is not obvious from the code. Skip the obvious ones.
@@ -13,7 +13,7 @@
 | ---------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------ |
 | 2026-05-19 | Target TrueFoundry track, not Perfect Corp                    | Better fit for backend depth, less crowded, sponsor judges care about resilience                                         | active |
 | 2026-05-19 | Build a runtime, demo as incident copilot (Option B)          | TrueFoundry's customer is the platform engineer; selling to that buyer scores higher on feasibility                      | active |
-| 2026-05-19 | Name: Sentinel                                                | Short, credible, signals "watches over your agents." Microsoft Sentinel collision noted, rename post-hackathon if needed | active |
+| 2026-05-19 | Name: Kexar (was Sentinel)                                  | Short, credible. Renamed from Sentinel to avoid collision with Microsoft Sentinel (SIEM product) | active |
 | 2026-05-19 | No agent framework (no LangGraph, no CrewAI)                  | The orchestration layer is the product. Frameworks hide the failure modes we are showcasing                              | active |
 | 2026-05-19 | Next.js for frontend, not Streamlit                           | Streamlit caps perceived quality at "internal tool." 4 extra hours buys us a real-product look                           | active |
 | 2026-05-19 | FastAPI + Python 3.12 backend                                 | Async, native SSE, sits where the LLM ecosystem lives                                                                    | active |

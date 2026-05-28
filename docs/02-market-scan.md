@@ -1,6 +1,6 @@
 # Market Scan
 
-**For:** Sentinel
+**For:** Kexar
 **Date:** 2026-05-19
 **Status:** Locked, informs build and pitch
 **Scope:** 30 minutes of research, not a McKinsey deck. We name competitors, what they do, where the gap is, and where we land.
@@ -119,7 +119,7 @@ There are four adjacent categories. We are not exactly in any of them. That is a
 
 ### Category 4: Incident response (demo surface only)
 
-PagerDuty, incident.io, Rootly, FireHydrant. All have started bolting AI features on. None of them are building an AI-native runtime. We are not competing here; if anything, they are eventual customers of Sentinel-the-runtime.
+PagerDuty, incident.io, Rootly, FireHydrant. All have started bolting AI features on. None of them are building an AI-native runtime. We are not competing here; if anything, they are eventual customers of Kexar-the-runtime.
 
 ---
 
@@ -132,7 +132,7 @@ The honest version of the gap:
 3. Every observability tool is post-hoc. By the time you see the failure in LangSmith, the user already saw the broken response.
 4. Nobody owns the user-visible resilience story. When the third fallback model fails, the agent should not throw. It should say, in plain language, "I cannot do X right now, here is what I can still do." That is a runtime-level product behavior. No tool ships it as a primitive.
 
-**Sentinel sits in this gap.** A runtime that wraps agent execution, owns the failure semantics, expresses degradation as a first-class concept, and surfaces it to users in plain English. We use the gateway underneath. We are not replacing it. We are using it the way it should be used.
+**Kexar sits in this gap.** A runtime that wraps agent execution, owns the failure semantics, expresses degradation as a first-class concept, and surfaces it to users in plain English. We use the gateway underneath. We are not replacing it. We are using it the way it should be used.
 
 ---
 
@@ -142,7 +142,7 @@ One line: **The resilience runtime for AI agents. Sits on top of your LLM gatewa
 
 Comparison shorthand for the pitch:
 
-| Layer                    | What owns it today                       | What Sentinel adds                                                                           |
+| Layer                    | What owns it today                       | What Kexar adds                                                                           |
 | ------------------------ | ---------------------------------------- | -------------------------------------------------------------------------------------------- |
 | Provider routing         | LLM gateway (TrueFoundry, Portkey, etc.) | Uses the gateway, does not replace it.                                                       |
 | Orchestration            | Frameworks (LangGraph, CrewAI)           | Optional. We expose orchestration too because the resilience semantics live here, not above. |
@@ -160,7 +160,7 @@ Reference points so the feasibility story holds up:
 - OpenRouter: pay per token + 5.5% credit fee.
 - LangSmith: free tier, paid plans for teams.
 
-A plausible Sentinel pricing (for the pitch, not the build):
+A plausible Kexar pricing (for the pitch, not the build):
 
 - OSS core. Self-hosted, MIT or Apache 2.0.
 - Hosted control plane: $99/mo per project for teams, $999/mo for orgs with RBAC, SSO, audit logs.
@@ -175,8 +175,8 @@ We do not build any of this. We just need to be able to answer "how would you ma
 - **Microsoft Agent Framework 1.0 GA in April 2026.** Microsoft is moving into this space hard with enterprise backing. If they ship first-class resilience primitives in v1.1, our window narrows. For the hackathon this is irrelevant. For a real business it is the biggest competitive risk.
 - **Gateway vendors will eat upward.** Portkey already has circuit breakers and semantic caching. It is one step from adding "graceful degradation policies" as a feature. Our moat has to be the orchestration semantics, not just the failure handling.
 - **"Resilience" is hard to demo on a slide.** This is why the chaos demo matters so much. If we do not show it, the category does not click for the judge.
-- **Open source pressure.** LiteLLM is free, OSS, and improving fast. If we ever charge for Sentinel, the OSS core must be strong enough to compete with self-hosted LiteLLM plus a hand-rolled retry layer.
-- **Naming collision with Microsoft Sentinel.** Microsoft Sentinel is a major SIEM product. Fine for the hackathon, no judge will confuse the two. For a real business launch, we rename. Logged in decisions doc.
+- **Open source pressure.** LiteLLM is free, OSS, and improving fast. If we ever charge for Kexar, the OSS core must be strong enough to compete with self-hosted LiteLLM plus a hand-rolled retry layer.
+- **Naming collision with Microsoft Sentinel.** Microsoft Sentinel is a major SIEM product, so the original working name (Sentinel) was changed to Kexar to avoid the clash. Logged in decisions doc.
 
 ---
 
@@ -185,17 +185,17 @@ We do not build any of this. We just need to be able to answer "how would you ma
 - **Use TrueFoundry as the gateway underneath us, not as a competitor.** Their dashboard appears in the demo. We are an additive layer.
 - **Do not reinvent LLM routing.** The gateway handles that. We handle what happens semantically when the routing has run out of options.
 - **The control panel is the differentiator.** It is the visible artifact of the runtime owning the failure semantics. Build it like a real product.
-- **The "graceful degradation API" is the conceptual headline.** A developer using Sentinel should write something like `@degrades_to(use_cache=True, partial_ok=True)` on an agent step, and the runtime handles the rest. We probably do not ship this exact API in 9 days, but the demo should imply it exists.
-- **The 30-second pitch in the demo video should land the gap.** "Gateways route. Frameworks orchestrate. Observability watches. Nobody owns what your agent does when all of that runs out. Sentinel does." That is the line.
+- **The "graceful degradation API" is the conceptual headline.** A developer using Kexar should write something like `@degrades_to(use_cache=True, partial_ok=True)` on an agent step, and the runtime handles the rest. We probably do not ship this exact API in 9 days, but the demo should imply it exists.
+- **The 30-second pitch in the demo video should land the gap.** "Gateways route. Frameworks orchestrate. Observability watches. Nobody owns what your agent does when all of that runs out. Kexar does." That is the line.
 
 ---
 
 ## Doc decisions captured
 
-- Sentinel is not a gateway, not a framework, not an observability tool. It is a runtime layer with a specific job: own the user-visible resilience semantics of an agent.
+- Kexar is not a gateway, not a framework, not an observability tool. It is a runtime layer with a specific job: own the user-visible resilience semantics of an agent.
 - We use TrueFoundry Gateway underneath. Show it in the demo.
 - We do not use LangGraph or CrewAI. Frameworks hide the layer we are trying to make visible.
 - Pitch positioning: "The resilience runtime for AI agents."
-- Naming risk (Microsoft Sentinel SIEM) acknowledged. Rename after hackathon if we proceed.
+- Naming risk (Microsoft Sentinel SIEM) acknowledged. Renamed from Sentinel to Kexar.
 
 ---
